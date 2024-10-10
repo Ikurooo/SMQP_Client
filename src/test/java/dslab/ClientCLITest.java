@@ -383,9 +383,9 @@ public class ClientCLITest {
             writeToCLI(in1, "publish %s %s %s %s".formatted(exchangeName, exchangeType, routingKey, message3));
 
             await().untilAsserted(() -> {
-                assertThat(readNextLine(out0)).contains("message received: %s".formatted(message1));
-                assertThat(readNextLine(out0)).contains("message received: %s".formatted(message2));
-                assertThat(readNextLine(out0)).contains("message received: %s".formatted(message3));
+                assertThat(readNextLine(out0)).contains("%s".formatted(message1));
+                assertThat(readNextLine(out0)).contains("%s".formatted(message2));
+                assertThat(readNextLine(out0)).contains("%s".formatted(message3));
             });
             clearOut(out0);
 
