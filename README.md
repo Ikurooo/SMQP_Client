@@ -8,6 +8,9 @@
 - [Protect Files and Directories](#protect-files-and-directories)
 - [Assignment Structure](#assignment-structure)
 - [Starting the Client Application](#starting-the-client-application)
+- [Imitate Message Broker Server](#imitate-message-broker-server)
+  - [netcat on Linux and macOS](#netcat-on-linux-and-macos)
+  - [netcat on Windows](#netcat-on-windows)
 - [Local Testing of the Client Application](#local-testing-of-the-client-application)
 
 ## What is DSLab SMQP Client?
@@ -63,6 +66,37 @@ mvn exec:java@<componentId>
 # You can also combine both commands into one
 mvn compile exec:java@<componentId>
 ```
+
+### Imitate Message Broker Server
+The Message Broker Server is only delivered as a mocked component of the test environment. To mimic the behavior of the
+Message Broker Server for manual local testing / debugging, you can use for example netcat (nc) to listen on a specific
+port and send specific responses to the client. To start a netcat server that listens on `localhost:20000`, you can use the following commands:
+
+#### netcat on Linux and macOS
+```bash
+# For Linux and macOS
+# Open the terminal. The following command starts a netcat server that listens at localhost on port 20000 for incoming connections.
+nc -l 20000
+```
+
+#### netcat on Windows
+```bash
+# For Windows first ensure that you have installed netcat (ncat). If not, you can download it from the following link: https://nmap.org/download.html#windows
+# Open CMD or PowerShell. The following command starts a netcat server that listens at localhost on port 20000 for incoming connections.
+ncat -l 20000
+```
+
+After starting the netcat server, you can start the client application with the following command:
+
+```bash
+# e.g., compile the project and start client-0
+mvn compile exec:java@client-0
+```
+
+By entering `channel broker-0` to the CLI, the client application will try connecting to the message broker server (here the netcat server) at `localhost` on port `20000`. The message broker server must respond with the expected response commands
+(i.e., *ok SMQP* when the client connects to the message broker server). You can then send response commands to the client and observe the behavior of the client application.
+
+> ⚠️ **ATTENTION** ⚠️: Ensure that the netcat server is terminated before executing any tests. Otherwise, most of the test cases will fail because the port 20000 is still occupied by the netcat server.
 
 ### Local Testing of the Client Application
 
