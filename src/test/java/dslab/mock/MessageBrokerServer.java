@@ -18,7 +18,6 @@ import java.util.Set;
  */
 public final class MessageBrokerServer extends Thread implements AutoCloseable {
 
-    @Getter
     private final TestOutputStream logs;
     private final boolean logClientConnected;
     private final Set<Socket> sockets = new HashSet<>();
@@ -120,5 +119,9 @@ public final class MessageBrokerServer extends Thread implements AutoCloseable {
                 // Ignored
             }
         }
+    }
+
+    public TestOutputStream getLogs() {
+        return logs;
     }
 }
