@@ -4,12 +4,18 @@ import java.util.function.Consumer;
 
 public class Subscription extends Thread {
 
+    private IChannel channel;
+    private Consumer<String> callback;
+
     public Subscription(IChannel channel, Consumer<String> callback) {
+        this.channel = channel;
+        this.callback = callback;
     }
 
     @Override
     public void run() {
-        throw new RuntimeException("Not implemented yet.");
+        Thread subscriptionThread = channel.subscribe(this.callback);
+        subscriptionThread.start();
     }
 }
 
