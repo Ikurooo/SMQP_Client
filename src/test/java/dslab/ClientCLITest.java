@@ -141,12 +141,17 @@ public class ClientCLITest {
         try (
                 TestInputStream in = new TestInputStream();
                 TestOutputStream out = new TestOutputStream();
-                MessageBrokerServer mb = new MessageBrokerServer(false)
+                MessageBrokerServer mb = new MessageBrokerServer(true)
         ) {
             prepareClientThread("client-0", in, out).start();
             awaitCLIPromptReady(out);
+            clearOut(mb.getLogs());
 
             writeToCLI(in, "channel broker-0");
+            await().untilAsserted(() -> {
+                assertThat(mb.getLogs().getLines()).contains("client connected");
+            });
+            awaitCLIPromptReady(out);
             clearOut(mb.getLogs());
 
             writeToCLI(in, "shutdown");
@@ -169,6 +174,7 @@ public class ClientCLITest {
         ) {
             prepareClientThread("client-0", in, out).start();
             awaitCLIPromptReady(out);
+            clearOut(mb.getLogs());
 
             writeToCLI(in, "channel broker-0");
 
@@ -265,14 +271,19 @@ public class ClientCLITest {
         try (
                 TestInputStream in = new TestInputStream();
                 TestOutputStream out = new TestOutputStream();
-                MessageBrokerServer mb = new MessageBrokerServer(false)
+                MessageBrokerServer mb = new MessageBrokerServer(true)
         ) {
 
             prepareClientThread("client-0", in, out).start();
             awaitCLIPromptReady(out);
+            clearOut(mb.getLogs());
 
             writeToCLI(in, "channel broker-0");
+            await().untilAsserted(() -> {
+                assertThat(mb.getLogs().getLines()).contains("client connected");
+            });
             awaitCLIPromptReady(out);
+            clearOut(mb.getLogs());
 
             // Test non-existing exchange type
             writeToCLI(in, "subscribe %s %s %s %s".formatted(exchangeName, strings[0], queueName, bindingKey));
@@ -358,13 +369,20 @@ public class ClientCLITest {
                 // Publisher
                 TestInputStream in1 = new TestInputStream();
                 TestOutputStream out1 = new TestOutputStream();
-                MessageBrokerServer mb = new MessageBrokerServer(false)
+                MessageBrokerServer mb = new MessageBrokerServer(true)
         ) {
 
             prepareClientThread("client-0", in0, out0).start();
             awaitCLIPromptReady(out0);
+            clearOut(mb.getLogs());
 
             writeToCLI(in0, "channel broker-0");
+            await().untilAsserted(() -> {
+                assertThat(mb.getLogs().getLines()).contains("client connected");
+            });
+            awaitCLIPromptReady(out0);
+            clearOut(mb.getLogs());
+
             writeToCLI(in0, "subscribe %s %s %s %s".formatted(exchangeName, exchangeType, queueName, bindingKey));
 
             await().untilAsserted(() -> {
@@ -376,8 +394,15 @@ public class ClientCLITest {
 
             prepareClientThread("client-1", in1, out1).start();
             awaitCLIPromptReady(out1);
+            clearOut(mb.getLogs());
 
             writeToCLI(in1, "channel broker-0");
+            await().untilAsserted(() -> {
+                assertThat(mb.getLogs().getLines()).contains("client connected");
+            });
+            awaitCLIPromptReady(out1);
+            clearOut(mb.getLogs());
+
             writeToCLI(in1, "publish %s %s %s %s".formatted(exchangeName, exchangeType, routingKey, message1));
             writeToCLI(in1, "publish %s %s %s %s".formatted(exchangeName, exchangeType, routingKey, message2));
             writeToCLI(in1, "publish %s %s %s %s".formatted(exchangeName, exchangeType, routingKey, message3));
@@ -413,13 +438,18 @@ public class ClientCLITest {
         try (
                 TestInputStream in = new TestInputStream();
                 TestOutputStream out = new TestOutputStream();
-                MessageBrokerServer mb = new MessageBrokerServer(false)
+                MessageBrokerServer mb = new MessageBrokerServer(true)
         ) {
             prepareClientThread("client-0", in, out).start();
             awaitCLIPromptReady(out);
+            clearOut(mb.getLogs());
 
             writeToCLI(in, "channel broker-0");
+            await().untilAsserted(() -> {
+                assertThat(mb.getLogs().getLines()).contains("client connected");
+            });
             awaitCLIPromptReady(out);
+            clearOut(mb.getLogs());
 
             // Test non-existing exchange type
             writeToCLI(in, "publish %s %s %s %s".formatted(exchangeName, strings[0], routingKey, message1));
