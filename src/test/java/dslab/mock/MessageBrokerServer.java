@@ -63,7 +63,7 @@ public final class MessageBrokerServer extends Thread implements AutoCloseable {
              BufferedReader socketIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              BufferedWriter socketOut = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()))
         ) {
-            socketOut.write("ok SQMP\n");
+            socketOut.write("ok SMQP\n");
             socketOut.flush();
 
             if (logClientConnected) {
