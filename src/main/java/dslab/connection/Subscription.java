@@ -14,8 +14,6 @@ public class Subscription extends Thread {
 
     @Override
     public void run() {
-        Thread subscriptionThread = channel.subscribe(this.callback);
-        subscriptionThread.start();
+        channel.subscribe(this.callback).run();
     }
 }
-

@@ -7,5 +7,6 @@ public enum ExchangeType {
     DIRECT,
     FANOUT,
     TOPIC,
-    HEADERS
+    HEADERS,
+    DEFAULT
 }

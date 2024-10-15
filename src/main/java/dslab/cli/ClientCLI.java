@@ -1,13 +1,14 @@
 package dslab.cli;
 
-import dslab.client.Client;
 import dslab.client.IClient;
 import dslab.config.Config;
 import dslab.connection.Channel;
 import dslab.connection.Subscription;
+import dslab.connection.types.ExchangeType;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -34,27 +35,35 @@ public class ClientCLI implements IClientCLI {
 
     @Override
     public void run() {
-        while (true) {
-            this.printPrompt();
-            String line = in.readLine();
-            if (line.equals("shutdown"))
-                client.shutdown();
+        try {
+            while (true) {
+                this.printPrompt();
+                String line = in.readLine();
+                if (line == null)
+                    continue;
+                if (line.equals("shutdown")) {
+                    this.shutdown();
+                    break;
+                }
+                List<String> arguments = List.of(line.split(" "));
+                String command = arguments.getFirst();
 
-            List<String> arguments = List.of(line.split(" "));
-            String command = arguments.getFirst();
+                switch (command) {
+                    case "channel" -> this.validateAndStartChannel(arguments);
+                    case "subscribe" -> this.startSubscription(s -> writeToOut(s), arguments);
+                    default -> this.writeToOut("error: unknown command");
 
-            switch (command) {
-                case "channel" -> validateAndStartChannel(arguments);
-                case "subscribe" -> this.startSubscription(s -> out.write(s + "\n"));
-
+                }
             }
+        } catch (IOException e) {
         }
     }
 
     @Override
     public void printPrompt() {
         try {
-            out.write(client.getComponentId() + "> ");
+            this.out.write("%s> ".formatted(client.getComponentId()));
+            this.out.flush();
         } catch (IOException e) {
             // TODO: add proper error handling!
             e.printStackTrace();
@@ -67,31 +76,68 @@ public class ClientCLI implements IClientCLI {
             channel.disconnect();
             in.close();
             out.close();
+            client.shutdown();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private Subscription subscription;
+    Subscription subscription;
 
-    private void startSubscription(Consumer<String> callback) {
-        this.subscription = new Subscription(this.channel, callback);
-        this.subscription.run();
-        this.in.readLine();
+    private void startSubscription(Consumer<String> callback, List<String> args) {
+        if (args.size() != 5 || this.channel == null) {
+            this.writeToOut("error");
+            return;
+        }
+        try {
+            String exchangeName = args.get(1);
+            ExchangeType exchangeType = ExchangeType.valueOf(args.get(2).toUpperCase());
+            String queueName = args.get(3);
+            String bindingKey = args.get(4);
+
+            this.channel.exchangeDeclare(exchangeType, exchangeName);
+            this.channel.queueBind(queueName, bindingKey);
+            this.subscription = new Subscription(this.channel, callback);
+            this.subscription.start();
+
+            this.in.readLine();
+            // TODO: send exit message to broker
+            this.subscription.interrupt();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            this.writeToOut("error: unknown exchange type");
+        }
+    }
+
+    private void writeToOut(String message) {
+        try {
+            this.out.write(message + "\n");
+        } catch (IOException e) {
+            System.out.println("error");
+        }
     }
 
     /**
      * Validates the channel arguments and initialises channel if arguments were
      * valid
      *
-     * @param args the arguments for creating a channel (this does not include the
-     *             'channel' argument itself)
+     * @param args the arguments for creating a channel
+     *
      */
     private void validateAndStartChannel(List<String> args) {
-        if (args.size() != 1 || this.channel != null)
+        if (args.size() != 2 || this.channel != null) {
+            writeToOut("error: invalid channel arguments");
             return;
-        String brokerName = args.get(1);
+        }
+        String brokerName = args.getLast();
         this.channel = this.createChannel(brokerName);
+        try {
+            this.channel.connect();
+        } catch (IOException e) {
+            this.writeToOut("error: failed to connect to broker");
+        }
     }
 
     /**
@@ -107,9 +153,12 @@ public class ClientCLI implements IClientCLI {
      *         broker
      */
     private Channel createChannel(String broker) {
-        if (!this.config.containsKey(broker))
+        if (!this.config.containsKey(broker + ".host")) {
+            this.writeToOut("error: broker does not exist.");
             return null;
-        int brokerPort = this.config.getInt(broker);
-        return new Channel(broker, brokerPort);
+        }
+        String brokerHost = this.config.getString(broker + ".host");
+        int brokerPort = this.config.getInt(broker + ".port");
+        return new Channel(brokerHost, brokerPort);
     }
 }

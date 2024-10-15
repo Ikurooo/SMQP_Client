@@ -2,6 +2,7 @@ package dslab.client;
 
 import dslab.ComponentFactory;
 import dslab.cli.ClientCLI;
+import dslab.config.Config;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -21,8 +22,7 @@ public class Client implements IClient {
 
     @Override
     public void run() {
-        // TODO: add real config
-        this.cli = new ClientCLI(this, null, this.in, this.out);
+        this.cli = new ClientCLI(this, new Config(this.componentId + ".properties"), this.in, this.out);
         this.cli.run();
     }
 
@@ -33,8 +33,7 @@ public class Client implements IClient {
 
     @Override
     public void shutdown() {
-        this.cli.shutdown();
-
+        
     }
 
     /**
