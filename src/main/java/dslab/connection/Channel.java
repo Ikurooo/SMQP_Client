@@ -26,45 +26,34 @@ public class Channel implements IChannel {
     private BufferedReader socketReader;
     private BufferedWriter socketWriter;
 
-    // TODO
     @Override
     public synchronized boolean connect() throws IOException {
         this.clientSocket = new Socket(serverHost, serverPort);
         this.socketReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         this.socketWriter = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+        this.awaitResponse("ok SMQP");
         return true;
     }
 
-    // TODO
     @Override
     public synchronized void disconnect() throws IOException {
-        if (!this.isConnected())
-            return;
-        this.sendMessage("exit");
-        socketWriter.flush();
-
-        socketWriter.close();
-        socketReader.close();
-        clientSocket.close();
+        if (this.isConnected())
+            this.sendMessage("exit");
     }
 
-    private String declaredExchangeName;
-    private ExchangeType declaredExchangeType;
-
-    // TODO
     @Override
     public synchronized boolean exchangeDeclare(ExchangeType exchangeType, String exchangeName) {
-        this.declaredExchangeType = exchangeType;
-        this.declaredExchangeName = exchangeName;
+        if (exchangeType == null || !this.isValidString(exchangeName))
+        return false; 
+
         sendMessage("exchange " + exchangeType.name().toLowerCase() + " " + exchangeName);
         return awaitResponse("ok");
     }
 
-    String declaredQueueName;
-
-    // TODO
     public synchronized boolean queueBind(String queueName, String bindingKey) {
-        this.declaredQueueName = queueName;
+        if (!this.isValidString(queueName) || !this.isValidString(bindingKey))
+            return false;
+
         this.sendMessage("queue " + queueName);
 
         if (!awaitResponse("ok"))
@@ -79,7 +68,7 @@ public class Channel implements IChannel {
         this.sendMessage("subscribe");
         if (!this.awaitResponse("ok")) {
             return new Thread(() -> {
-                System.err.println("Error: broker side error");
+                System.err.println("Error: broker side error, press ENTER to continue.");
             });
         }
         return new Thread(() -> Stream.generate(this::getFromSubscription)
@@ -99,7 +88,8 @@ public class Channel implements IChannel {
 
     @Override
     public boolean publish(String routingKey, String message) {
-        return false;
+        this.sendMessage("publish " + routingKey + " " + message);
+        return this.awaitResponse("ok");
     }
 
     /**

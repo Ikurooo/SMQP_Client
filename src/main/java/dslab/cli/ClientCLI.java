@@ -8,7 +8,6 @@ import dslab.connection.types.ExchangeType;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -19,14 +18,13 @@ import java.util.function.Consumer;
 
 public class ClientCLI implements IClientCLI {
 
-    private Config config;
+    private final Config config;
+    private final IClient client;
     private Channel channel;
-    private IClient client;
-    private BufferedWriter out;
-    private BufferedReader in;
+    private final BufferedWriter out;
+    private final BufferedReader in;
 
     public ClientCLI(IClient client, Config config, InputStream in, OutputStream out) {
-        // TODO: pass in real arguments
         this.config = config;
         this.client = client;
         this.out = new BufferedWriter(new OutputStreamWriter(out));
@@ -35,130 +33,135 @@ public class ClientCLI implements IClientCLI {
 
     @Override
     public void run() {
-        try {
-            while (true) {
-                this.printPrompt();
-                String line = in.readLine();
-                if (line == null)
-                    continue;
-                if (line.equals("shutdown")) {
-                    this.shutdown();
-                    break;
-                }
-                List<String> arguments = List.of(line.split(" "));
-                String command = arguments.getFirst();
+        while (true) {
+            printPrompt();
+            String line = readFromIn();
 
-                switch (command) {
-                    case "channel" -> this.validateAndStartChannel(arguments);
-                    case "subscribe" -> this.startSubscription(s -> writeToOut(s), arguments);
-                    default -> this.writeToOut("error: unknown command");
+            if (line == null)
+                continue;
 
-                }
+            if ("shutdown".equals(line)) {
+                shutdown();
+                break;
             }
-        } catch (IOException e) {
+
+            List<String> arguments = List.of(line.split(" "));
+            String command = arguments.get(0);
+
+            switch (command) {
+                case "channel" -> startChannel(arguments);
+                case "subscribe" -> startSubscription(this::writeToOut, arguments);
+                case "publish" -> publishMessage(arguments);
+                default -> writeToOut("error: unknown command");
+            }
         }
     }
 
     @Override
     public void printPrompt() {
         try {
-            this.out.write("%s> ".formatted(client.getComponentId()));
-            this.out.flush();
+            out.write(client.getComponentId() + "> ");
+            out.flush();
         } catch (IOException e) {
-            // TODO: add proper error handling!
-            e.printStackTrace();
+            System.err.println("error: unable to write prompt.");
         }
     }
 
-    // TODO: idk if this is the best place to shut down the input output!
     public void shutdown() {
         try {
-            channel.disconnect();
-            in.close();
-            out.close();
+            if (channel != null) {
+                channel.disconnect();
+            }
             client.shutdown();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    Subscription subscription;
-
-    private void startSubscription(Consumer<String> callback, List<String> args) {
-        if (args.size() != 5 || this.channel == null) {
-            this.writeToOut("error");
+    private void publishMessage(List<String> args) {
+        if (args.size() != 5 || channel == null) {
+            writeToOut("error: incorrect arguments or channel does not exist");
             return;
         }
         try {
             String exchangeName = args.get(1);
-            ExchangeType exchangeType = ExchangeType.valueOf(args.get(2).toUpperCase());
+            String exchangeType = args.get(2).toUpperCase();
+            String routingKey = args.get(3);
+            String message = args.get(4);
+
+            channel.exchangeDeclare(ExchangeType.valueOf(exchangeType), exchangeName);
+            channel.publish(routingKey, message);
+
+        } catch (IllegalArgumentException e) {
+            writeToOut("error: unknown exchange type");
+        }
+    }
+
+    private void startSubscription(Consumer<String> callback, List<String> args) {
+        if (args.size() != 5 || channel == null) {
+            writeToOut("error: incorrect arguments or channel does not exist");
+            return;
+        }
+
+        try {
+            String exchangeName = args.get(1);
+            String exchangeType = args.get(2).toUpperCase();
             String queueName = args.get(3);
             String bindingKey = args.get(4);
 
-            this.channel.exchangeDeclare(exchangeType, exchangeName);
-            this.channel.queueBind(queueName, bindingKey);
-            this.subscription = new Subscription(this.channel, callback);
-            this.subscription.start();
+            channel.exchangeDeclare(ExchangeType.valueOf(exchangeType), exchangeName);
+            channel.queueBind(queueName, bindingKey);
 
-            this.in.readLine();
-            // TODO: send exit message to broker
-            this.subscription.interrupt();
+            Subscription subscription = new Subscription(channel, callback);
+            subscription.start();
 
-        } catch (IOException e) {
-            e.printStackTrace();
+            readFromIn(); // Wait for user input to interrupt
+            subscription.interrupt();
+
         } catch (IllegalArgumentException e) {
-            this.writeToOut("error: unknown exchange type");
+            writeToOut("error: unknown exchange type");
         }
     }
 
     private void writeToOut(String message) {
         try {
-            this.out.write(message + "\n");
+            out.write(message + "\n");
+            out.flush();
         } catch (IOException e) {
-            System.out.println("error");
+            System.err.println("error: failed to write output.");
         }
     }
 
-    /**
-     * Validates the channel arguments and initialises channel if arguments were
-     * valid
-     *
-     * @param args the arguments for creating a channel
-     *
-     */
-    private void validateAndStartChannel(List<String> args) {
-        if (args.size() != 2 || this.channel != null) {
+    private String readFromIn() {
+        try {
+            return in.readLine();
+        } catch (IOException e) {
+            System.err.println("error: failed reading from cli.");
+            return null;
+        }
+    }
+
+    private void startChannel(List<String> args) {
+        if (args.size() != 2 || channel != null) {
             writeToOut("error: invalid channel arguments");
             return;
         }
-        String brokerName = args.getLast();
-        this.channel = this.createChannel(brokerName);
+
+        String brokerName = args.get(1);
+        if (!config.containsKey(brokerName + ".host")) {
+            writeToOut("error: broker does not exist.");
+            return;
+        }
+
+        String brokerHost = config.getString(brokerName + ".host");
+        int brokerPort = config.getInt(brokerName + ".port");
+
+        this.channel = new Channel(brokerHost, brokerPort);
+
         try {
             this.channel.connect();
         } catch (IOException e) {
-            this.writeToOut("error: failed to connect to broker");
+            writeToOut("error: failed to connect to broker");
         }
-    }
-
-    /**
-     * A channel is an instance which is used to multiplex connections on a single
-     * TCP connection.
-     * Please read the documentation of the {@link Channel} class for more
-     * information.
-     * Attention should be paid if the channel is already connected to a broker, it
-     * should be disconnected first.
-     *
-     * @param broker the broker to which the channel should be created
-     * @return the channel to which a connection is established with the specified
-     *         broker
-     */
-    private Channel createChannel(String broker) {
-        if (!this.config.containsKey(broker + ".host")) {
-            this.writeToOut("error: broker does not exist.");
-            return null;
-        }
-        String brokerHost = this.config.getString(broker + ".host");
-        int brokerPort = this.config.getInt(broker + ".port");
-        return new Channel(brokerHost, brokerPort);
     }
 }
