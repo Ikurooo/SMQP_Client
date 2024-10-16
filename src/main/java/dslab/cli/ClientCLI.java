@@ -18,13 +18,18 @@ import java.util.function.Consumer;
 
 public class ClientCLI implements IClientCLI {
 
+    private Channel channel;
     private final Config config;
     private final IClient client;
-    private Channel channel;
     private final BufferedWriter out;
     private final BufferedReader in;
 
     public ClientCLI(IClient client, Config config, InputStream in, OutputStream out) {
+        if (in == null)
+            throw new IllegalArgumentException("InputStream cannot be null");
+        if (out == null)
+            throw new IllegalArgumentException("OutputStream cannot be null");
+
         this.config = config;
         this.client = client;
         this.out = new BufferedWriter(new OutputStreamWriter(out));
@@ -69,12 +74,37 @@ public class ClientCLI implements IClientCLI {
 
     public void shutdown() {
         try {
-            if (channel != null) {
-                channel.disconnect();
-            }
-            client.shutdown();
+            if (this.channel != null)
+                this.channel.disconnect();
+            this.in.close();
+            this.out.flush();
+            this.out.close();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void startChannel(List<String> args) {
+        if (args.size() != 2 || channel != null) {
+            writeToOut("error: invalid channel arguments");
+            return;
+        }
+
+        String brokerName = args.get(1);
+        if (!config.containsKey(brokerName + ".host")) {
+            writeToOut("error: broker does not exist.");
+            return;
+        }
+
+        String brokerHost = config.getString(brokerName + ".host");
+        int brokerPort = config.getInt(brokerName + ".port");
+
+        this.channel = new Channel(brokerHost, brokerPort);
+
+        try {
+            this.channel.connect();
+        } catch (IOException e) {
+            writeToOut("error: failed to connect to broker");
         }
     }
 
@@ -138,30 +168,6 @@ public class ClientCLI implements IClientCLI {
         } catch (IOException e) {
             System.err.println("error: failed reading from cli.");
             return null;
-        }
-    }
-
-    private void startChannel(List<String> args) {
-        if (args.size() != 2 || channel != null) {
-            writeToOut("error: invalid channel arguments");
-            return;
-        }
-
-        String brokerName = args.get(1);
-        if (!config.containsKey(brokerName + ".host")) {
-            writeToOut("error: broker does not exist.");
-            return;
-        }
-
-        String brokerHost = config.getString(brokerName + ".host");
-        int brokerPort = config.getInt(brokerName + ".port");
-
-        this.channel = new Channel(brokerHost, brokerPort);
-
-        try {
-            this.channel.connect();
-        } catch (IOException e) {
-            writeToOut("error: failed to connect to broker");
         }
     }
 }

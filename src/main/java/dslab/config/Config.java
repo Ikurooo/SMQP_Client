@@ -17,7 +17,8 @@ public final class Config {
     private final Map<String, Object> properties = new HashMap<>();
 
     /**
-     * Creates an instance of {@link Config} which reads configuration data from a  {@code .properties} file with given name found in classpath resources.
+     * Creates an instance of {@link Config} which reads configuration data from a
+     * {@code .properties} file with given name found in classpath resources.
      *
      * @param name the name of the .properties file
      */

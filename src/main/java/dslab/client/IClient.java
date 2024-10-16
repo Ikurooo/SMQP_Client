@@ -17,10 +17,12 @@ public interface IClient extends Runnable {
     String getComponentId();
 
     /**
-     * Implement any necessary steps to ensure a correct shutdown of the {@link Client} and {@link ClientCLI}.
+     * Implement any necessary steps to ensure a correct shutdown of the
+     * {@link Client} and {@link ClientCLI}.
      * <p>
      * For example, claimed system resources like streams must be unclaimed.
-     * You can obtain more information in the corresponding JavaDoc of the used classes.
+     * You can obtain more information in the corresponding JavaDoc of the used
+     * classes.
      */
     void shutdown();
 

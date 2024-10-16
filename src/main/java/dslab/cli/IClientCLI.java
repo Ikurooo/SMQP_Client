@@ -1,6 +1,5 @@
 package dslab.cli;
 
-
 public interface IClientCLI extends Runnable {
 
     /**

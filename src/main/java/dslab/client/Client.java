@@ -9,10 +9,10 @@ import java.io.OutputStream;
 
 public class Client implements IClient {
 
-    private String componentId;
     private ClientCLI cli;
-    private InputStream in;
-    private OutputStream out;
+    private final String componentId;
+    private final InputStream in;
+    private final OutputStream out;
 
     public Client(String componentId, InputStream in, OutputStream out) {
         this.componentId = componentId;
@@ -33,7 +33,7 @@ public class Client implements IClient {
 
     @Override
     public void shutdown() {
-        
+        this.cli.shutdown();
     }
 
     /**
